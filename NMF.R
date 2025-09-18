@@ -90,3 +90,23 @@ hts <- list(
 
 )
 ComplexHeatmap::draw(Reduce(`%v%`, hts), merge_legend=TRUE)
+
+
+#Save
+ht <- Reduce(`%v%`, hts)  # 이미 만든 히트맵 결합
+
+## 크기 자동 산출(대충 가독 사이즈)
+ns <- length(clord)                                  # 샘플 수(열)
+nr <- sum(c(ncol(Mt), ncol(Ccl), ncol(Gz)), na.rm=TRUE)  # 총 피처 수(행)
+w_in <- max(6,  min(0.12 * ns, 30))  # 가로(inch)
+h_in <- max(8,  min(0.15 * nr, 60))  # 세로(inch)
+
+## PDF
+pdf("intNMF_heatmap.pdf", width=w_in, height=h_in, onefile=FALSE)
+draw(ht, merge_legend=TRUE, heatmap_legend_side="right", annotation_legend_side="right")
+dev.off()
+
+## PNG(고해상도)
+png("intNMF_heatmap.png", units="in", res=300, width=w_in, height=h_in, type="cairo")
+draw(ht, merge_legend=TRUE, heatmap_legend_side="right", annotation_legend_side="right")
+dev.off()
