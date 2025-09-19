@@ -32,10 +32,12 @@ M1 <- M[, keep, drop=FALSE]
 dat3 <- M1
 
 # The function nmf.mnnals requires the samples to be on rows and variables on columns.
+
 dat <- list(dat1,dat2,dat3)
-fit <- nmf.mnnals(dat=dat,k=4,maxiter=200,st.count=20,n.ini=15,ini.nndsvd=TRUE,
-seed=TRUE)
+fit <- nmf.mnnals(dat=dat,k=4,maxiter=200,st.count=20,n.ini=15,ini.nndsvd=TRUE,seed=TRUE)
 ClusterEntropy(ComputedClusters=fit$clusters, TrueClasses=true.cluster.assignment$cluster.id)
+SilhouettePlot(fit, cluster.col = NULL)
+
 
 
 #결과 바탕으로 히트맵 그리기.
