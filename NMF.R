@@ -2,6 +2,7 @@ library(ComplexHeatmap); library(circlize); library(matrixStats); library(RColor
 
 gsva <- read.table("Hallmark GSVA위치")
 cnv <- read.table("gistic 결과 위치")
+
 library(maftools)
 library(data.table)
 library(dplyr)
@@ -51,9 +52,11 @@ gsva_raw <- gsva[common,]
 cnv_raw <- cnv[common,]
 mut_raw <- mut[common,]
 
-dat1 <- gsva_raw
-dat2 <- cnv_raw
-dat3 <- mut_raw
+## IntNMF 데이터 준비
+dat1 <- as.matrix(gsva_raw)
+dat2 <- as.matrix(cnv_raw)
+dat3 <- as.matrix(mut_raw)
+
 
 ## Make all data positive by shifting to positive direction.
 ## Also rescale the datasets so that they are comparable.
@@ -74,7 +77,7 @@ dat3 <- M1
 # The function nmf.mnnals requires the samples to be on rows and variables on columns.
 
 dat <- list(dat1,dat2,dat3)
-fit <- nmf.mnnals(dat=dat,k=4,maxiter=200,st.count=20,n.ini=15,ini.nndsvd=TRUE,seed=TRUE)
+fit <- nmf.mnnals(dat=dat,k=3,maxiter=200,st.count=20,n.ini=15,ini.nndsvd=TRUE,seed=TRUE)
 ClusterEntropy(ComputedClusters=fit$clusters, TrueClasses=true.cluster.assignment$cluster.id)
 SilhouettePlot(fit, cluster.col = NULL)
 
@@ -104,10 +107,16 @@ zcol <- function(X, cap=2){
   Z[Z < -cap] <- -cap
   Z
 }
-
 Gz <- zcol(G, cap=2) 
-Ccl  <- pmax(pmin(C, 2), -2)               # CNV는 원본을 [-2,2]로 클립
-Mt   <- M                                  # Mutation은 0/1 그대로
+
+# CNV clipping 수정
+C <- as.matrix(C)
+Ccl <- C
+Ccl[Ccl > 2] <- 2
+Ccl[Ccl < -2] <- -2
+
+Mt <- as.matrix(M)
+
 
 ## 5) 색
 col_gsva <- circlize::colorRamp2(c(-2,0,2), c("#2b6cb0","white","#c53030"))
