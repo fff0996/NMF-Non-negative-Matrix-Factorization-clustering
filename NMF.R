@@ -152,6 +152,61 @@ nr <- sum(c(ncol(Mt), ncol(Ccl), ncol(Gz)), na.rm=TRUE)  # 총 피처 수(행)
 w_in <- max(6,  min(0.12 * ns, 30))  # 가로(inch)
 h_in <- max(8,  min(0.15 * nr, 60))  # 세로(inch)
 
+##anno 데이터가 있다는 전제
+## 0) 체크
+stopifnot(nrow(Gz)==nrow(Ccl), nrow(Gz)==nrow(Mt))
+samp <- rownames(Gz)
+annx <- anno[match(samp, anno$sample), ]
+stopifnot(identical(annx$sample, samp))
+lev <- c("C1","C2","C3")
+
+## 1) 분할·상태
+split_fac <- factor(annx$clord, levels=lev)
+ord <- order(split_fac)  # 군집 블록 고정
+ec_state <- ifelse(annx$ecDNA_called & annx$ecDNA_any, "pos",
+             ifelse(annx$ecDNA_called & !annx$ecDNA_any, "neg", "NA"))
+ec_state <- factor(ec_state, levels=c("neg","pos","NA"))
+
+## 2) 상단 어노테이션
+library(ComplexHeatmap); library(grid)
+ha_top <- HeatmapAnnotation(
+  df = data.frame(
+    Cluster = split_fac,
+    APOBEC  = factor(annx$categ),
+    ecDNA   = ec_state,                     # ec_state 레벨: neg/pos/NA(문자)
+    driver  = factor(annx$ecDNA_driver),
+    row.names = samp
+  ),
+  TMB    = anno_barplot(annx$TMB,          border=FALSE),
+  burden = anno_barplot(annx$ecDNA_burden, border=FALSE),
+  col = list(
+    Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e"), lev),
+    ecDNA   = c(neg="#BDBDBD", pos="#000000", "NA"="#FFFFFF")  # ← 여기
+  ),
+  annotation_name_side="left",
+  show_annotation_name=TRUE
+)
+
+
+## 3) 히트맵(행=샘플이므로 t() 유지)
+hts <- list(
+  gsva = Heatmap(t(Gz),  name="GSVA",      col=col_gsva, top_annotation=ha_top,
+                 show_row_names=TRUE, show_column_names=FALSE,
+                 cluster_rows=TRUE,  cluster_columns=FALSE,
+                 column_split=split_fac, column_order=ord),
+  cnv  = Heatmap(t(Ccl), name="CopyNumber", col=col_cnv,
+                 show_row_names=TRUE, show_column_names=FALSE,
+                 cluster_rows=TRUE,  cluster_columns=FALSE,
+                 column_split=split_fac, column_order=ord),
+  mutation = Heatmap(t(Mt), name="Mutation", col=col_mut,
+                 show_row_names=TRUE, show_column_names=FALSE,
+                 cluster_rows=TRUE,  cluster_columns=FALSE,
+                 column_split=split_fac, column_order=ord)
+)
+
+draw(Reduce(`%v%`, hts), merge_legend=TRUE,
+     heatmap_legend_side="right", annotation_legend_side="right")
+
 ## PDF
 pdf("intNMF_heatmap.pdf", width=w_in, height=h_in, onefile=FALSE)
 draw(ht, merge_legend=TRUE, heatmap_legend_side="right", annotation_legend_side="right")
