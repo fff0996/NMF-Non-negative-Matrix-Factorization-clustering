@@ -28,7 +28,18 @@ min_samples <- 3
 keep_genes <- colSums(mut_mat) >= min_samples
 mut_mat <- mut_mat[, keep_genes, drop = FALSE]
 
+# 1. 각 유전자(열)별로 mutation frequency 계산
+gene_freq <- colSums(mut_mat) / nrow(mut_mat)
 
+# 2. 0.05 < freq < 0.60 조건 만족하는 유전자 선택
+selected_genes <- gene_freq > 0.05 & gene_freq < 0.60
+
+# 3. 필터링된 매트릭스
+mut_mat_filtered <- mut_mat[, selected_genes]
+
+# 확인
+dim(mut_mat_filtered)
+summary(colSums(mut_mat_filtered) / nrow(mut_mat_filtered))
 
 
 mut <- read.table("somatic mutation calling 결과 위치")
