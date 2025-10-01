@@ -153,21 +153,39 @@ ec_state <- ifelse(annx$ecDNA_called & annx$ecDNA_any, "pos",
              ifelse(annx$ecDNA_called & !annx$ecDNA_any, "neg", "NA"))
 ec_state <- factor(ec_state, levels=c("neg","pos","NA"))
 
+annx$categ <- as.character(annx$categ)
+annx$categ[is.na(annx$categ)] <- "NA"  # NA를 문자열로
+
+# Factor로 변환 (모든 level 명시)
+categ_levels <- c("Signature_3", "Signature_APOBEC", "Signature_clock", 
+                  "Signature_17", "Signature_8", "NA")
+annx$categ <- factor(annx$categ, levels = categ_levels)
+
+# 색상 (순서 동일하게)
+categ_colors <- c(
+  "Signature_3" = "#E41A1C",
+  "Signature_APOBEC" = "#377EB8",
+  "Signature_clock" = "#999999",
+  "Signature_17" = "#999999",
+  "Signature_8" = "#999999",
+  "NA" = "#999999"
+)
 ## 2) 상단 어노테이션
 library(ComplexHeatmap); library(grid)
 ha_top <- HeatmapAnnotation(
   df = data.frame(
     Cluster = split_fac,
-    APOBEC  = factor(annx$categ),
-    ecDNA   = ec_state,                     # ec_state 레벨: neg/pos/NA(문자)
-    driver  = factor(annx$ecDNA_driver),
+    APOBEC  = annx$categ,  # exclude=NULL 제거
+    ecDNA   = ec_state,
+    driver  = factor(annx$ecDNA_driver, exclude=NULL),
     row.names = samp
   ),
-  TMB    = anno_barplot(annx$TMB,          border=FALSE),
+  TMB    = anno_barplot(annx$TMB, border=FALSE),
   burden = anno_barplot(annx$ecDNA_burden, border=FALSE),
   col = list(
     Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e"), lev),
-    ecDNA   = c(neg="#BDBDBD", pos="#000000", "NA"="#FFFFFF")  # ← 여기
+    APOBEC  = categ_colors,
+    ecDNA   = c(neg="#BDBDBD", pos="#000000", "NA"="#FFFFFF")
   ),
   annotation_name_side="left",
   show_annotation_name=TRUE
