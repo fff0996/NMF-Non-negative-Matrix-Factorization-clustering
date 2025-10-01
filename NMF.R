@@ -67,9 +67,10 @@ dat3 <- dat3[, p >= 0.05 & p <= 0.60, drop=FALSE]
 
 # IntNMF
 dat <- list(dat1, dat2_combined, dat3)
-fit <- nmf.mnnals(dat=dat, k=4, maxiter=200, st.count=20, n.ini=15, 
+fit <- nmf.mnnals(dat=dat, k=3, maxiter=200, st.count=20, n.ini=15, 
                   ini.nndsvd=TRUE, seed=TRUE)
-
+SilhouettePlot(fit, cluster.col = NULL)
+ConsensusMatPlot(fit,rowLab=TRUE,colLab=TRUE)
 ## 히트맵: 원본 사용 (간단하게)
 common <- Reduce(intersect, list(rownames(gsva_raw), rownames(cnv_raw), 
                                  rownames(mut_raw), rownames(fit$W)))
