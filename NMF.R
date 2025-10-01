@@ -45,6 +45,13 @@ summary(colSums(mut_mat_filtered) / nrow(mut_mat_filtered))
 
 mut <- read.table("somatic mutation calling 결과 위치")
 # 샘플 (행) * features (열) 형태로 맞춰주기 
+
+
+
+
+
+
+
 # common 공통 샘플로 통일
 common <- Reduce(intersect,list(rownames(gsva), rownames(cnv),rownames(mut)))
 #나중에 히트맵 그릴때 이 데이터로 그림 
@@ -52,95 +59,82 @@ gsva_raw <- gsva[common,]
 cnv_raw <- cnv[common,]
 mut_raw <- mut[common,]
 
-## IntNMF 데이터 준비
+# IntNMF 입력: Gain/Loss 분리 (정확성)
+cnv_gain <- pmax(as.matrix(cnv_raw), 0)
+cnv_loss <- abs(pmin(as.matrix(cnv_raw), 0))
+dat2_combined <- cbind(cnv_gain/max(cnv_gain), cnv_loss/max(cnv_loss))
+
+# GSVA는 shift (feature 수 관리)
 dat1 <- as.matrix(gsva_raw)
-dat2 <- as.matrix(cnv_raw)
-dat3 <- as.matrix(mut_raw)
-
-
-## Make all data positive by shifting to positive direction.
-## Also rescale the datasets so that they are comparable.
-if (!all(dat1>=0)) dat1 <- pmax(dat1 + abs(min(dat1)), .Machine$double.eps)
+if (!all(dat1 >= 0)) dat1 <- dat1 + abs(min(dat1)) + .Machine$double.eps
 dat1 <- dat1/max(dat1)
-if (!all(dat2>=0)) dat2 <- pmax(dat2 + abs(min(dat2)), .Machine$double.eps)
-dat2 <- dat2/max(dat2)
-#dat3 (mutation) 는 binary
-#if (!all(dat3>=0)) dat3 <- pmax(dat3 + abs(min(dat3)), .Machine$double.eps)
-#dat3 <- dat3/max(dat3)
-# 빈도 필터
-M <- dat3
-p <- colMeans(M==1)
-keep <- which(p >= 0.05 & p <= 0.60)
-M1 <- M[, keep, drop=FALSE]
-dat3 <- M1
 
-# The function nmf.mnnals requires the samples to be on rows and variables on columns.
+# Mutation
+dat3 <- as.matrix(mut_raw)
+p <- colMeans(dat3 == 1)
+dat3 <- dat3[, p >= 0.05 & p <= 0.60, drop=FALSE]
 
-dat <- list(dat1,dat2,dat3)
-fit <- nmf.mnnals(dat=dat,k=3,maxiter=200,st.count=20,n.ini=15,ini.nndsvd=TRUE,seed=TRUE)
-ClusterEntropy(ComputedClusters=fit$clusters, TrueClasses=true.cluster.assignment$cluster.id)
-SilhouettePlot(fit, cluster.col = NULL)
+# IntNMF
+dat <- list(dat1, dat2_combined, dat3)
+fit <- nmf.mnnals(dat=dat, k=4, maxiter=200, st.count=20, n.ini=15, 
+                  ini.nndsvd=TRUE, seed=TRUE)
 
+## 히트맵: 원본 사용 (간단하게)
+common <- Reduce(intersect, list(rownames(gsva_raw), rownames(cnv_raw), 
+                                 rownames(mut_raw), rownames(fit$W)))
+W <- fit$W[common, , drop=FALSE]
+cl <- setNames(paste0("C", fit$clusters[common]), common)
+sord <- names(sort(apply(W, 1, max)))
+clord <- cl[sord]
+lev <- unique(clord)
 
+# 원본 데이터 (Gain/Loss 합치지 않음)
+G <- gsva_raw[sord, , drop=FALSE]
+C <- cnv_raw[sord, , drop=FALSE]  # signed 그대로
+M <- mut_raw[sord, , drop=FALSE]
 
-#결과 바탕으로 히트맵 그리기.
-## 1) 공통 샘플 정렬
-common <- Reduce(intersect, list(rownames(gsva_raw), rownames(cnv_raw), rownames(mut_raw), rownames(fit$W)))
-stopifnot(length(common) >= 2)
-
-## 2) 정렬
-W     <- fit$W[common, , drop=FALSE]
-cl    <- setNames(paste0("C", fit$clusters[common]), common)
-sord  <- names(sort(apply(W, 1, max)))    # W 최대값 기준 정렬
-clord <- cl[sord]; lev <- unique(clord)
-
-## 3) 히트맵 입력 = 원본(raw)
-G <- gsva_raw[sord, , drop=FALSE]          # GSVA raw
-C <- cnv_raw[sord,  , drop=FALSE]          # CNV  raw (log2)
-M <- mut_raw[sord,  , drop=FALSE]          # MUT  raw (0/1)
-## 4) 표준화/클립
+# Z-score/clip
 zcol <- function(X, cap=2){
   X <- as.matrix(X)
-  Z <- scale(X)                 # column-wise
+  Z <- scale(X)
   Z[!is.finite(Z)] <- 0
-  Z[Z >  cap] <-  cap
+  Z[Z > cap] <- cap
   Z[Z < -cap] <- -cap
   Z
 }
-Gz <- zcol(G, cap=2) 
 
-# CNV clipping 수정
+Gz <- zcol(G, cap=2)
 C <- as.matrix(C)
 Ccl <- C
 Ccl[Ccl > 2] <- 2
 Ccl[Ccl < -2] <- -2
-
 Mt <- as.matrix(M)
 
+# 히트맵 (3개만, gain/loss 따로 안 그림)
+col_gsva <- colorRamp2(c(-2,0,2), c("#2b6cb0","white","#c53030"))
+col_cnv <- colorRamp2(c(-2,0,2), c("#225ea8","white","#e34a33"))
+col_mut <- c("0"="white","1"="black")
 
-## 5) 색
-col_gsva <- circlize::colorRamp2(c(-2,0,2), c("#2b6cb0","white","#c53030"))
-col_cnv  <- circlize::colorRamp2(c(-2,0,2), c("#225ea8","white","#e34a33"))
-col_mut  <- c("0"="white","1"="black")
-ha <- ComplexHeatmap::HeatmapAnnotation(Cluster=factor(clord, levels=lev))
+ha <- HeatmapAnnotation(Cluster=factor(clord, levels=lev))
 
-## 6) 히트맵
 hts <- list(
-   gsva     = ComplexHeatmap::Heatmap(t(Gz),  name="GSVA",      col=col_gsva, top_annotation=ha,
-                                     show_row_names=TRUE, show_column_names=FALSE,
-                                     cluster_rows=TRUE,  cluster_columns=FALSE,
-                                     column_split=factor(clord, levels=lev)),
-  cnv      = ComplexHeatmap::Heatmap(t(Ccl), name="CopyNumber", col=col_cnv,
-                                     show_row_names=TRUE, show_column_names=FALSE,
-                                     cluster_rows=TRUE,  cluster_columns=FALSE,
-                                     column_split=factor(clord, levels=lev)),
-    mutation = ComplexHeatmap::Heatmap(t(Mt),  name="Mutation",  col=col_mut,
-                                     show_row_names=TRUE, show_column_names=FALSE,
-                                     cluster_rows=TRUE,  cluster_columns=FALSE,
-                                     column_split=factor(clord, levels=lev))
-
+  gsva = Heatmap(t(Gz), name="GSVA", col=col_gsva, top_annotation=ha,
+                 show_row_names=TRUE, show_column_names=FALSE,
+                 cluster_rows=TRUE, cluster_columns=FALSE,
+                 column_split=factor(clord, levels=lev)),
+  
+  cnv = Heatmap(t(Ccl), name="CNV", col=col_cnv,
+                show_row_names=TRUE, show_column_names=FALSE,
+                cluster_rows=TRUE, cluster_columns=FALSE,
+                column_split=factor(clord, levels=lev)),
+  
+  mutation = Heatmap(t(Mt), name="Mutation", col=col_mut,
+                     show_row_names=TRUE, show_column_names=FALSE,
+                     cluster_rows=TRUE, cluster_columns=FALSE,
+                     column_split=factor(clord, levels=lev))
 )
-ComplexHeatmap::draw(Reduce(`%v%`, hts), merge_legend=TRUE)
+
+draw(Reduce(`%v%`, hts), merge_legend=TRUE)
 
 
 #Save
