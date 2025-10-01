@@ -1,12 +1,10 @@
 library(ComplexHeatmap); library(circlize); library(matrixStats); library(RColorBrewer) ; library(IntNMF)
-
-gsva <- read.table("Hallmark GSVA위치")
-cnv <- read.table("gistic 결과 위치")
-
 library(maftools)
 library(data.table)
 library(dplyr)
 library(tidyr)
+
+merged_maf <- readRDS("merged_maf.rds")
 # merged_maf: maftools::merge_mafs()로 만든 MAF 객체라고 가정
 d <- as.data.table(merged_maf@data)
 
@@ -24,10 +22,6 @@ mut_mat <- nonsyn %>%
 rownames(mut_mat) <- mut_mat$SampleID
 mut_mat$SampleID <- NULL
 
-# 희귀 노이즈 제거: 너무 희귀한 유전자는 드롭 (예: ≥3 샘플에서 변이)
-min_samples <- 3
-keep_genes <- colSums(mut_mat) >= min_samples
-mut_mat <- mut_mat[, keep_genes, drop = FALSE]
 
 # 1. 각 유전자(열)별로 mutation frequency 계산
 gene_freq <- colSums(mut_mat) / nrow(mut_mat)
@@ -40,16 +34,13 @@ mut_mat_filtered <- mut_mat[, selected_genes]
 
 # 확인
 dim(mut_mat_filtered)
-summary(colSums(mut_mat_filtered) / nrow(mut_mat_filtered))
+write.table(mut_mat_filtered,"NMF_mutinput.txt",sep="\t",quote=F,row.names=F)
 
 
-mut <- read.table("somatic mutation calling 결과 위치")
+gsva <- read.table("Hallmark GSVA위치")
+cnv <- read.table("gistic 결과 위치")
+mut <- read.table("NMF_mutinput.txt")
 # 샘플 (행) * features (열) 형태로 맞춰주기 
-
-
-
-
-
 
 
 # common 공통 샘플로 통일
