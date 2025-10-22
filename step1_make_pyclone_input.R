@@ -218,3 +218,7 @@ print(test_result)
 # cat("Total patients:", nrow(results_df), "\n")
 # cat("Success:", sum(results_df$status == "SUCCESS"), "\n")
 # cat("Errors:", sum(results_df$status != "SUCCESS"), "\n")
+
+#pyclone-vi  fit -i YON30-TD-180427_input.tsv -o ./results/ -c 10 -d beta-binomial -r 5
+
+#pyclone-vi write-results-file -i ./results -o ./results.tsv
