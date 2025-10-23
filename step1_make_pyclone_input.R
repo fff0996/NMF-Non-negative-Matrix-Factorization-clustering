@@ -204,21 +204,22 @@ print(test_result)
 # 전체 실행 (주석 해제하여 사용)
 # ============================================
 
-# results <- list()
-# for(i in 1:length(all_patient_ids)) {
-#   result <- process_patient(all_patient_ids[i])
-#   results[[i]] <- result
-# }
-# 
-# # Summary
-# results_df <- do.call(rbind, lapply(results, as.data.frame))
-# write.csv(results_df, "pyclone_input_summary.csv", row.names = FALSE)
-# 
-# cat("\n=== SUMMARY ===\n")
-# cat("Total patients:", nrow(results_df), "\n")
-# cat("Success:", sum(results_df$status == "SUCCESS"), "\n")
-# cat("Errors:", sum(results_df$status != "SUCCESS"), "\n")
+results <- list()
+for(i in 1:length(all_patient_ids)) {
+   result <- process_patient(all_patient_ids[i])
+   results[[i]] <- result
+ }
+ 
+ # Summary
+ results_df <- do.call(rbind, lapply(results, as.data.frame))
+ write.csv(results_df, "pyclone_input_summary.csv", row.names = FALSE)
+ 
+ cat("\n=== SUMMARY ===\n")
+ cat("Total patients:", nrow(results_df), "\n")
+ cat("Success:", sum(results_df$status == "SUCCESS"), "\n")
+ cat("Errors:", sum(results_df$status != "SUCCESS"), "\n")
 
-#pyclone-vi  fit -i YON30-TD-180427_input.tsv -o ./results/ -c 10 -d beta-binomial -r 5
+#Pyclone 분석 
+pyclone-vi  fit -i YON30-TD-180427_input.tsv -o ./results/ -c 10 -d beta-binomial -r 5
 
-#pyclone-vi write-results-file -i ./results -o ./results.tsv
+pyclone-vi write-results-file -i ./results -o ./results.tsv
