@@ -29,4 +29,18 @@ ggraph(g, layout = 'fr') +
   labs(title = "C2: Co-occurring Subclonal Mutations") +
   theme_graph()
 
+library(data.table)
+
+# PyClone 결과 파일들이 있는 디렉토리
+result_dir <- "pyclone_results/"
+
+# 모든 결과 파일 찾기
+result_files <- list.files(result_dir, 
+                          pattern = "_results.tsv$",  # 또는 적절한 패턴
+                          full.names = TRUE)
+
+cat("Found", length(result_files), "result files\n")
+
+# 모든 파일 읽어서 합치기
+all_results <- rbindlist(lapply(result_files, fread), fill = TRUE)
 
