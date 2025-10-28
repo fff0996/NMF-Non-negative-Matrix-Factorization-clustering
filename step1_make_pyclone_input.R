@@ -1,3 +1,39 @@
+##### Purity , Ploidy ABSOLUTE사용해서 구하기 #############
+
+library(DoAbsolute)
+library(data.table)
+
+# 1. MAF 객체에서 data.frame 추출
+Maf_df <- maf@data  # maftools 객체에서 원본 데이터 추출
+
+# 2. 컬럼명 확인 및 수정 (DoAbsolute 형식에 맞추기)
+# Seg 파일: ID 컬럼을 Sample로 변경
+setnames(Seg, "ID", "Sample")
+
+# MAF 파일: Tumor_Sample_Barcode 컬럼 확인
+# (보통 이미 있지만, 없으면 생성)
+if(!"Tumor_Sample_Barcode" %in% colnames(Maf_df)) {
+  setnames(Maf_df, "Tumor_Sample_Barcode", "Tumor_Sample_Barcode")
+}
+
+# 3. 샘플 ID 확인
+unique_samples_seg <- unique(Seg$Sample)
+unique_samples_maf <- unique(Maf_df$Tumor_Sample_Barcode)
+
+cat("Seg 샘플 수:", length(unique_samples_seg), "\n")
+cat("MAF 샘플 수:", length(unique_samples_maf), "\n")
+
+# 4. DoAbsolute 실행
+DoAbsolute(
+  Seg = Seg, 
+  Maf = Maf_df,  # data.frame으로 변환된 것 사용
+  platform = "Illumina_WES",  # WES 데이터인 것 같으니
+  copy.num.type = "total",
+  results.dir = "absolute_results",
+  keepAllResult = TRUE,
+  verbose = TRUE
+)
+
 # ============================================
 # Step 1: PyClone Input 생성 (완성 버전)
 # ============================================
