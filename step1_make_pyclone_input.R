@@ -33,7 +33,62 @@ DoAbsolute(
   keepAllResult = TRUE,
   verbose = TRUE
 )
+####External data ABSOLUTE#########
 
+
+
+cnv <- read.table("./data_cna_hg19.seg",sep="\t",header=T)
+head(cnv)
+clin <- read.table('./data_clinical_patient.txt',sep="\t",header=T)
+clin <- fread('./data_clinical_patient.txt',sep="\t",header=T)
+library(data.table)
+clin <- fread('./data_clinical_patient.txt',sep="\t",header=T)
+head(clin)
+colnames(clin)
+mut <- read.table("./data_mutations.txt",sep="\t",header=T)
+head(mut)
+head(cnv)
+head(cnv)
+library(dplyr)
+head(cnv)
+seg <- cnv
+names(seg) <- c("Sample","Chromosome", "Start", "End", "Num_Probes", "Segment_Mean")
+head(seg)
+head(mut)
+mut2 <- mut %>%
+  transmute(SampleID = Tumor_Sample_Barcode,
+            chrom = Chromosome, pos = Start_Position,
+            t_ref = as.numeric(t_ref_count),
+            t_alt = as.numeric(t_alt_count)) %>%
+  filter(is.finite(t_ref), is.finite(t_alt), (t_ref + t_alt) > 0) %>%
+  mutate(VAF = t_alt / (t_ref + t_alt))
+head(mut2)
+Maf_df <- mut
+head(Maf_df)
+library(ABSOLUTE)
+Seg <- seg
+DoAbsolute(
+  Seg = Seg, 
+  Maf = Maf_df,
+  platform = "Illumina_WES",
+  copy.num.type = "total",
+  results.dir = "absolute_results",
+  keepAllResult = TRUE,
+  verbose = TRUE
+)
+library(DoAbsolute)
+library(data.table)
+DoAbsolute(
+  Seg = Seg, 
+  Maf = Maf_df,  # data.frame으로 변환된 것 사용
+  platform = "Illumina_WES",  # WES 데이터인 것 같으니
+  copy.num.type = "total",
+  results.dir = "absolute_results",
+  keepAllResult = TRUE,
+  verbose = TRUE
+)
+getwd()
+history(Inf)
 # ============================================
 # Step 1: PyClone Input 생성 (완성 버전)
 # ============================================
