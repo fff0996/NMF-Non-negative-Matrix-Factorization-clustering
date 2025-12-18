@@ -67,8 +67,12 @@ dat3 <- dat3[, p >= 0.05 & p <= 0.60, drop=FALSE]
 
 # IntNMF
 dat <- list(dat1, dat2_combined, dat3)
-fit <- nmf.mnnals(dat=dat, k=3, maxiter=200, st.count=20, n.ini=15, 
+fit3 <- nmf.mnnals(dat=dat, k=3, maxiter=200, st.count=20, n.ini=15, 
                   ini.nndsvd=TRUE, seed=TRUE)
+
+fit4 <- nmf.mnnals(dat=dat, k=4, maxiter=200, st.count=20, n.ini=15, ini.nndsvd=TRUE, seed=TRUE)
+
+fit <- fit4
 SilhouettePlot(fit, cluster.col = NULL)
 ConsensusMatPlot(fit,rowLab=TRUE,colLab=TRUE)
 ## 히트맵: 원본 사용 (간단하게)
@@ -145,7 +149,7 @@ samp <- rownames(Gz)
 annx <- anno[match(samp, anno$sample), ]
 stopifnot(identical(annx$sample, samp))
 lev <- c("C1","C2","C3")
-
+lev <- c("C1","C2","C3","C4")
 ## 1) 분할·상태
 split_fac <- factor(annx$clord, levels=lev)
 ord <- order(split_fac)  # 군집 블록 고정
@@ -183,7 +187,7 @@ ha_top <- HeatmapAnnotation(
   TMB    = anno_barplot(annx$TMB, border=FALSE),
   burden = anno_barplot(annx$ecDNA_burden, border=FALSE),
   col = list(
-    Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e"), lev),
+    Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e","#d62728"), lev),
     APOBEC  = categ_colors,
     ecDNA   = c(neg="#BDBDBD", pos="#000000", "NA"="#FFFFFF")
   ),
