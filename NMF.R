@@ -187,7 +187,8 @@ ha_top <- HeatmapAnnotation(
   TMB    = anno_barplot(annx$TMB, border=FALSE),
   burden = anno_barplot(annx$ecDNA_burden, border=FALSE),
   col = list(
-    Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e","#d62728"), lev),
+    #Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e","#d62728"), lev),
+    Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e"), lev),
     APOBEC  = categ_colors,
     ecDNA   = c(neg="#BDBDBD", pos="#000000", "NA"="#FFFFFF")
   ),
