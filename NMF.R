@@ -156,6 +156,18 @@ ord <- order(split_fac)  # 군집 블록 고정
 ec_state <- ifelse(annx$ecDNA_called , "ecDNA+","ecDNA-")
 ec_state <- factor(ec_state, levels=c("ecDNA-","ecDNA+"))
 
+
+
+main_drivers <- c("ERBB2", "CCND1", "FGFR1", "MYC", "MDM2", "PPM1D", 
+                  "CCNE1", "CDK4", "KAT6A", "IKZF3", "NSD3")
+
+driver_mat <- sapply(main_drivers, function(d) {
+  as.numeric(grepl(d, annx$ecDNA_driver))
+})
+rownames(driver_mat) <- samp
+colnames(driver_mat) <- main_drivers
+
+
 annx$categ <- as.character(annx$categ)
 annx$categ[is.na(annx$categ)] <- "NA"  # NA를 문자열로
 
@@ -188,9 +200,11 @@ ha_top <- HeatmapAnnotation(
     driver  = factor(annx$ecDNA_driver, exclude=NULL),
     row.names = samp
   ),
+ 
+ #Barplots
   TMB    = anno_barplot(annx$TMB, border=FALSE),
   burden = anno_barplot(annx$ecDNA_burden, border=FALSE),
-  col = list(
+  col =  list(
     #Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e","#d62728"), lev),
     Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e"), lev),
     APOBEC  = categ_colors,
@@ -217,8 +231,31 @@ hts <- list(
                  column_split=split_fac, column_order=ord)
 )
 
-draw(Reduce(`%v%`, hts), merge_legend=TRUE,
-     heatmap_legend_side="right", annotation_legend_side="right")
+driver_heatmap <- Heatmap(
+  t(driver_mat),  # transpose: driver가 row, sample이 column
+  name = "ecDNA Driver",
+  col = c("0" = "white", "1" = "#E74C3C"),  # 빨간색
+  rect_gp = gpar(col = "grey90", lwd = 1),  # cell 경계선
+  show_row_names = TRUE,
+  show_column_names = FALSE,
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  column_split = split_fac,
+  column_order = ord,
+  row_names_side = "left",
+  show_heatmap_legend = TRUE,
+  heatmap_legend_param = list(
+    title = "ecDNA Driver",
+    at = c(0, 1),
+    labels = c("Not altered", "Altered"),
+    legend_direction = "horizontal"
+  )
+)
+
+draw(Reduce(`%v%`, c(hts, list(driver_heatmap))), 
+     merge_legend = TRUE,
+     heatmap_legend_side = "right", 
+     annotation_legend_side = "right")
 
 ## PDF
 pdf("intNMF_heatmap.pdf", width=w_in, height=h_in, onefile=FALSE)
