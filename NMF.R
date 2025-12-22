@@ -149,30 +149,34 @@ samp <- rownames(Gz)
 annx <- anno[match(samp, anno$sample), ]
 stopifnot(identical(annx$sample, samp))
 lev <- c("C1","C2","C3")
-lev <- c("C1","C2","C3","C4")
+#lev <- c("C1","C2","C3","C4")
 ## 1) 분할·상태
 split_fac <- factor(annx$clord, levels=lev)
 ord <- order(split_fac)  # 군집 블록 고정
-ec_state <- ifelse(annx$ecDNA_called & annx$ecDNA_any, "pos",
-             ifelse(annx$ecDNA_called & !annx$ecDNA_any, "neg", "NA"))
-ec_state <- factor(ec_state, levels=c("neg","pos","NA"))
+ec_state <- ifelse(annx$ecDNA_called , "ecDNA+","ecDNA-")
+ec_state <- factor(ec_state, levels=c("ecDNA-","ecDNA+"))
 
 annx$categ <- as.character(annx$categ)
 annx$categ[is.na(annx$categ)] <- "NA"  # NA를 문자열로
 
 # Factor로 변환 (모든 level 명시)
-categ_levels <- c("Signature_3", "Signature_APOBEC", "Signature_clock", 
-                  "Signature_17", "Signature_8", "NA")
+categ_levels <- c("Signature HRD", "Signature APOBEC", "Signature clock", 
+                  "Signature 17", "Signature 8", "Unassigned")
 annx$categ <- factor(annx$categ, levels = categ_levels)
 
 # 색상 (순서 동일하게)
 categ_colors <- c(
-  "Signature_3" = "#E41A1C",
-  "Signature_APOBEC" = "#377EB8",
-  "Signature_clock" = "#999999",
-  "Signature_17" = "#999999",
-  "Signature_8" = "#999999",
-  "NA" = "#999999"
+  "Signature HRD" = "#E41A1C",
+  "Signature APOBEC" = "#377EB8",
+  "Signature clock" = "#999999",
+  "Signature 17" = "#999999",
+  "Signature 8" = "#999999",
+  "Unassigned" = "#999999"
+)
+
+ecDNA_colors <- c(
+ "ecDNA-" = "#BDBDBD",
+  "ecDNA+" = "#000000"
 )
 ## 2) 상단 어노테이션
 library(ComplexHeatmap); library(grid)
@@ -190,7 +194,7 @@ ha_top <- HeatmapAnnotation(
     #Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e","#d62728"), lev),
     Cluster = setNames(c("#1f77b4","#2ca02c","#ff7f0e"), lev),
     APOBEC  = categ_colors,
-    ecDNA   = c(neg="#BDBDBD", pos="#000000", "NA"="#FFFFFF")
+    ecDNA   = ecDNA_colors
   ),
   annotation_name_side="left",
   show_annotation_name=TRUE
