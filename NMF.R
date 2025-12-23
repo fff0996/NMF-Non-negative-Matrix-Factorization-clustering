@@ -158,7 +158,7 @@ ec_state <- factor(ec_state, levels=c("ecDNA-","ecDNA+"))
 
 
 
-main_drivers <- c("ERBB2", "CCND1", "FGFR1", "MYC", "MDM2", "PPM1D", 
+main_drivers <- c("ERBB2", "CCND1", "FGFR1", "MYC", "MDM2", "PPM1D", "EGFR",
                   "CCNE1", "CDK4", "KAT6A", "IKZF3", "NSD3")
 
 driver_mat <- sapply(main_drivers, function(d) {
@@ -197,7 +197,7 @@ ha_top <- HeatmapAnnotation(
     Cluster = split_fac,
     APOBEC  = annx$categ,  # exclude=NULL 제거
     ecDNA   = ec_state,
-    driver  = factor(annx$ecDNA_driver, exclude=NULL),
+   # driver  = factor(annx$ecDNA_driver, exclude=NULL),
     row.names = samp
   ),
  
@@ -263,6 +263,6 @@ draw(ht, merge_legend=TRUE, heatmap_legend_side="right", annotation_legend_side=
 dev.off()
 
 ## PNG(고해상도)
-png("intNMF_heatmap.png", units="in", res=300, width=w_in, height=h_in, type="cairo")
+png("intNMF_heatmap.png", units="in", res=300, width=25, height=30, type="cairo")
 draw(ht, merge_legend=TRUE, heatmap_legend_side="right", annotation_legend_side="right")
 dev.off()
