@@ -93,89 +93,137 @@ res_metab  <- plot_gsva_set_print(GSVA_mat, split_fac, pw_metab,  "Metabolic / d
 
 
 #======================================================
-#CNV Amp/Del Frequency 그룹별 
+#CNV Amp/Del CNV mean 그룹별 
 #======================================================
-library(dplyr)
-library(tidyr)
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+})
 
-amp_thr <- 1
-del_thr <- -1
-top_n_amp <- 18
-top_n_del <- 18
+## ---- 0) shape check
+cnv_cyto <- as.data.frame(cnv_cyto)
+stopifnot(!is.null(rownames(cnv_cyto)))
+stopifnot(is.factor(split_fac), !is.null(names(split_fac)))
 
-cnv_bin_amp <- cnv_cyto >= amp_thr
-cnv_bin_del <- cnv_cyto <= del_thr
+common_samp <- intersect(rownames(cnv_cyto), names(split_fac))
+stopifnot(length(common_samp) >= 10)
 
-amp_freq_all <- colMeans(cnv_bin_amp, na.rm=TRUE)
-del_freq_all <- colMeans(cnv_bin_del, na.rm=TRUE)
+cnv_cyto  <- cnv_cyto[common_samp, , drop=FALSE]
+split_fac <- split_fac[common_samp]
 
-top_amp  <- names(sort(amp_freq_all, decreasing=TRUE))[1:min(top_n_amp, length(amp_freq_all))]
-top_del  <- names(sort(del_freq_all, decreasing=TRUE))[1:min(top_n_del, length(del_freq_all))]
-top_band <- unique(c(top_amp, top_del))
+# numeric 강제
+cnv_cyto[] <- lapply(cnv_cyto, function(x) as.numeric(as.character(x)))
 
-# cytoband order: (amp+del) 전체 빈도(최대값) 기준 정렬
-ord_score <- pmax(amp_freq_all[top_band], del_freq_all[top_band], na.rm=TRUE)
-band_levels <- names(sort(ord_score, decreasing=TRUE))
+## ---- 1) stats (Kruskal + BH)
+pvals <- sapply(colnames(cnv_cyto), function(band) {
+  x <- cnv_cyto[[band]]
+  ok <- is.finite(x) & !is.na(split_fac)
+  if (length(unique(split_fac[ok])) < 2) return(1)
+  suppressWarnings(kruskal.test(x[ok] ~ split_fac[ok])$p.value)
+})
+qvals <- p.adjust(pvals, "BH")
 
-df_amp <- as.data.frame(cnv_bin_amp[, top_band, drop=FALSE]) %>%
-  mutate(sample = rownames(.), cluster = as.character(split_fac[sample])) %>%
-  pivot_longer(cols = all_of(top_band), names_to="cytoband", values_to="event") %>%
-  group_by(cluster, cytoband) %>%
-  summarise(freq = mean(event, na.rm=TRUE), .groups="drop") %>%
-  mutate(type = "Amp")
-
-df_del <- as.data.frame(cnv_bin_del[, top_band, drop=FALSE]) %>%
-  mutate(sample = rownames(.), cluster = as.character(split_fac[sample])) %>%
-  pivot_longer(cols = all_of(top_band), names_to="cytoband", values_to="event") %>%
-  group_by(cluster, cytoband) %>%
-  summarise(freq = mean(event, na.rm=TRUE), .groups="drop") %>%
-  mutate(type = "Del")
-
-plot_df <- bind_rows(df_amp, df_del) %>%
-  mutate(
-    cluster = factor(cluster, levels=c("C1","C2","C3")),
-    type    = factor(type, levels=c("Amp","Del")),
-    cytoband = factor(cytoband, levels=band_levels)
-  )
-library(ggplot2)
-
-# 논문용(너무 쨍하지 않게) - 필요하면 바꿔도 됨
-cluster_cols <- c(
-  "C1" = "#D55E00",  # burnt orange
-  "C2" = "#009E73",  # green
-  "C3" = "#0072B2"   # blue
+cnv_stats <- data.frame(
+  CNV_peak = colnames(cnv_cyto),
+  P_value  = pvals[colnames(cnv_cyto)],
+  FDR      = qvals[colnames(cnv_cyto)],
+  stringsAsFactors = FALSE
 )
 
-p <- ggplot(plot_df, aes(x=cytoband, y=freq, fill=cluster)) +
-  geom_col(
-    width = 0.78,
-    position = position_dodge2(width = 0.82, padding = 0.12),
-    color = NA
-  ) +
-  facet_grid(type ~ ., scales="free_y", switch="y") +
-  scale_fill_manual(values = cluster_cols) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.06))) +
-  labs(x=NULL, y="Frequency") +
-  theme_classic(base_size = 11) +
+sel_bands <- cnv_stats$CNV_peak[is.finite(cnv_stats$FDR) & cnv_stats$FDR < 0.05]
+stopifnot(length(sel_bands) >= 1)
+cat("FDR<0.05 bands:", length(sel_bands), "\n")
+
+## ---- 2) mean ± SE table for selected bands
+calc_mean_se <- function(x, g) {
+  df <- data.frame(x=x, g=g)
+  df %>%
+    group_by(g) %>%
+    summarise(
+      n    = sum(!is.na(x)),
+      mean = mean(x, na.rm=TRUE),
+      se   = sd(x, na.rm=TRUE) / sqrt(n),
+      .groups = "drop"
+    )
+}
+
+plot_df <- lapply(sel_bands, function(band){
+  ms <- calc_mean_se(cnv_cyto[[band]], split_fac)
+  ms$CNV_peak <- band
+  ms
+}) %>% bind_rows()
+
+plot_df <- plot_df %>%
+  dplyr::rename(Cluster = g) %>%
+  mutate(
+    Cluster = factor(as.character(Cluster), levels = levels(split_fac))
+  ) %>%
+  dplyr::select(CNV_peak, Cluster, n, mean, se)
+
+## ---- 3) DEL/AMP 분류
+mean_overall <- plot_df %>%
+  group_by(CNV_peak) %>%
+  summarise(mean_all = mean(mean, na.rm=TRUE), .groups="drop") %>%
+  mutate(type = ifelse(mean_all < 0, "DEL", "AMP"))
+
+plot_df <- plot_df %>%
+  left_join(mean_overall[, c("CNV_peak", "type")], by="CNV_peak")
+
+## ---- 4) DEL/AMP 각각 정렬 (effect size)
+order_del <- plot_df %>%
+  filter(type == "DEL") %>%
+  group_by(CNV_peak) %>%
+  summarise(effect = max(mean) - min(mean), .groups="drop") %>%
+  arrange(desc(effect))
+
+order_amp <- plot_df %>%
+  filter(type == "AMP") %>%
+  group_by(CNV_peak) %>%
+  summarise(effect = max(mean) - min(mean), .groups="drop") %>%
+  arrange(desc(effect))
+
+## ---- 5) DEL plot (가로)
+plot_del <- plot_df %>% filter(type == "DEL")
+plot_del$CNV_peak <- factor(plot_del$CNV_peak, levels=order_del$CNV_peak)
+
+
+                     
+p_del <- ggplot(plot_del, aes(x=CNV_peak, y=mean, fill=Cluster)) +
+  geom_bar(stat="identity", position=position_dodge(0.8), width=0.7) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se),
+                position=position_dodge(0.8), width=0.25, linewidth=0.4) +
+  scale_fill_manual(values=c("C1"="#8EB3D6", "C2"="#F2C94C", "C3"="#7DBE6C")) +
+  labs(x=NULL, y="Mean CNV value", title="Deletion") +
+  theme_minimal(base_size=11) +
   theme(
-    # strip(패널 제목) 최소화
-    strip.background = element_blank(),
-    strip.placement  = "outside",
-    strip.text.y.left = element_text(face="bold", size=11),
-    strip.text.x = element_blank(),
-
-    # x축 글자(겹침 방지)
-    axis.text.x  = element_text(angle=45, hjust=1, vjust=1, size=9),
-    axis.ticks.x = element_blank(),
-
-    # 선/여백 정리
-    axis.line.x = element_blank(),
-    panel.spacing = unit(8, "mm"),
-
-    # legend
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle=45, hjust=1, size=9),
+    legend.position = "top",
     legend.title = element_blank(),
-    legend.position = "right",
-    legend.key.height = unit(4, "mm")
+    plot.title = element_text(face="bold", hjust=0.5)
   )
 
-p
+## ---- AMP plot
+p_amp <- ggplot(plot_amp, aes(x=CNV_peak, y=mean, fill=Cluster)) +
+  geom_bar(stat="identity", position=position_dodge(0.8), width=0.7) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se),
+                position=position_dodge(0.8), width=0.25, linewidth=0.4) +
+  scale_fill_manual(values=c("C1"="#8EB3D6", "C2"="#F2C94C", "C3"="#7DBE6C")) +
+  labs(x=NULL, y="Mean CNV value", title="Amplification") +
+  theme_minimal(base_size=11) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle=45, hjust=1, size=9),
+    legend.position = "top",
+    legend.title = element_blank(),
+    plot.title = element_text(face="bold", hjust=0.5)
+  )
+
+library(patchwork)
+p_combined <- p_amp / p_del + 
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "top")
+
+print(p_combined)
